@@ -1,0 +1,110 @@
+package Cafeteria_Example;
+
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
+public class Cafeteria_Main {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+		KitchenCounter counter = new KitchenCounter(4); 
+		new Waiter(counter, "Waiter 1").start(); //Thread
+		new Waiter(counter, "Waiter 2").start(); //Thread
+		for(int i=1; i<=8; i++)
+			new Student(counter, "Student "+i).start();
+		
+	}
+
+}
+
+public class KitchenCounter {
+
+	private int bun = 0;
+	private int capacity;
+	private Lock monitor = new ReentrantLock(); 
+	private Condition full, empty; 
+
+	public KitchenCounter(int capacity) { 
+	this.capacity = capacity; 
+	monitor = new ReentrantLock(); 
+	full = monitor.newCondition(); 
+	empty = monitor.newCondition(); 
+	} 
+
+	public void put() { 
+	monitor.lock(); 
+	while(bun == capacity) { 
+	try { 
+	empty.await(); 
+	} catch (InterruptedException e) { } 
+	}
+	bun++;
+	System.out.println("put(): Still " + bun + " bun(s) on the counter"); 
+	full.signal();
+	monitor.unlock();	
+	}
+
+	public void take() { 
+	monitor.lock(); 
+	while(bun == 0) { 
+	try { 
+	full.await(); 
+	} catch (InterruptedException e) { } 
+	}
+	bun--;
+	System.out.println("take(): Still " + bun + " bun(s) on the counter"); 
+	empty.signal();
+	monitor.unlock(); 
+	} 
+
+}
+
+public class Waiter extends Thread {
+
+	private KitchenCounter counter;
+	
+	public Waiter(KitchenCounter counter, String name) {
+		super(name);
+		this.counter = counter;
+	}
+	
+	@Override
+	public void run(){
+		while(true){
+			counter.put();
+			System.out.println(" " + Thread.currentThread().getName() + " new bun on counter!");
+			
+			try{
+				TimeUnit.SECONDS.sleep(new Random().nextInt(2));
+			}catch (InterruptedException e){
+			}
+		}
+	}
+}
+
+public class Student extends Thread {
+
+	private KitchenCounter counter;
+	
+	public Student(KitchenCounter counter, String name){
+		super(name);
+		this.counter = counter;
+	}
+	
+	@Override
+	public void run(){
+		while(true){
+			counter.take();
+			System.out.println(" " + Thread.currentThread().getName() + " is eating!");
+			
+			try{
+				TimeUnit.SECONDS.sleep(new Random().nextInt(10));
+			}catch (InterruptedException e){
+			}
+		}
+	}
+}
